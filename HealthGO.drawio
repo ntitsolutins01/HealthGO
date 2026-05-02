@@ -1,0 +1,214 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="-zgBdrcqMCQhfvzfO_MJ">
+    <mxGraphModel dx="1717" dy="1038" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="zona1" parent="1" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;rounded=1;" value="ZONA 1 — CLÍNICA (LAN não confiável)" vertex="1">
+          <mxGeometry height="240" width="1240" x="270" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="ecg" parent="zona1" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" value="ECG Device&#xa;250Hz · 12 derivações" vertex="1">
+          <mxGeometry height="70" width="160" x="50" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="keyvault_local" parent="zona1" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" value="Key Vault&#xa;(local / HSM)" vertex="1">
+          <mxGeometry height="50" width="160" x="50" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_agent" parent="zona1" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=10;fontStyle=1;" value="EDGE AGENT (Python)&#xa;&#xa;1. Lê sinal bruto do dispositivo&#xa;2. Pseudonimiza patient_id&#xa;   → HMAC-SHA256 (chave age-encrypted)&#xa;3. Grava no WAL (SQLite) antes de enviar&#xa;4. Publica via Dapr Sidecar → MQTT/TLS 1.3&#xa;5. Confirma envio → deleta do WAL" vertex="1">
+          <mxGeometry height="140" width="420" x="400" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="zona1" source="ecg" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;fontStyle=2;" target="edge_agent" value="USB/Serial">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="zona1" source="keyvault_local" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;fontStyle=2;dashed=1;" target="edge_agent" value="chave">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mqtt_label" parent="zona1" style="text;html=1;align=center;fontSize=11;fontStyle=2;fillColor=#ffe6cc;strokeColor=#d6b656;rounded=1;" value="MQTT / TLS 1.3 / mTLS&#xa;INTERNET — TLS 1.3 + mTLS (cert por clínica)" vertex="1">
+          <mxGeometry height="40" width="310" x="890" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mqtt_down" edge="1" parent="zona1" source="edge_agent" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;strokeColor=#FF6600;strokeWidth=2;" target="mqtt_label" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="220" />
+              <mxPoint x="855" y="220" />
+              <mxPoint x="855" y="50" />
+              <mxPoint x="1045" y="50" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="zona2" parent="1" style="swimlane;startSize=30;fillColor=#f5f5f5;strokeColor=#0078D4;fontSize=13;fontStyle=1;rounded=1;strokeWidth=2;" value="ZONA 2 — AZURE CLOUD (Brazil South) — ambiente confiável e auditável" vertex="1">
+          <mxGeometry height="1720" width="1240" x="270" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="borda_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;rounded=1;" value="CAMADA DE BORDA" vertex="1">
+          <mxGeometry height="130" width="1170" x="30" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="firewall" parent="borda_layer" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;" value="Azure Firewall Premium&#xa;IDPS · OWASP Top 10&#xa;IP Blocklist" vertex="1">
+          <mxGeometry height="55" width="200" x="220" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="appgw" parent="borda_layer" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;" value="App Gateway WAF v2&#xa;SQL Inject · XSS&#xa;L7 Protection" vertex="1">
+          <mxGeometry height="55" width="200" x="490" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="nginx" parent="borda_layer" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;" value="NGINX Ingress&#xa;Rate Limit&#xa;TLS Termination" vertex="1">
+          <mxGeometry height="55" width="200" x="760" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="borda_layer" source="firewall" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="appgw" value="IDPS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="borda_layer" source="appgw" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="nginx" value="L7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ingest_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;rounded=1;" value="CAMADA DE INGESTÃO (.NET Aspire + Dapr)" vertex="1">
+          <mxGeometry height="150" width="1170" x="30" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="ingestor" parent="ingest_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="Ingestor&#xa;(ASP.NET gRPC)&#xa;Dapr Sidecar&#xa;validates mTLS" vertex="1">
+          <mxGeometry height="90" width="180" x="241" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" parent="ingest_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="Auth Service&#xa;(ASP.NET)&#xa;Dapr Sidecar&#xa;JWT + mTLS" vertex="1">
+          <mxGeometry height="90" width="180" x="501" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="alert_svc" parent="ingest_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" value="Alert Service&#xa;(ASP.NET + Dapr sub)&#xa;Dapr Sidecar&#xa;→ WebSocket (Centrifugo)" vertex="1">
+          <mxGeometry height="90" width="200" x="761" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="ingest_layer" source="ingestor" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;dashed=1;" target="auth" value="Dapr pub/sub">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_grpc" edge="1" parent="zona2" source="borda_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;fontSize=10;fontStyle=2;" target="ingest_layer" value="gRPC / TLS interno">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kafka_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;rounded=1;" value="KAFKA — CONFLUENT CLOUD (SLA 99.95%)" vertex="1">
+          <mxGeometry height="200" width="1170" x="30" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="topic1" parent="kafka_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Tópico: ecg.raw.samples&#xa;7 dias · 48 partições · replicação: 3" vertex="1">
+          <mxGeometry height="50" width="323" x="140" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="topic2" parent="kafka_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Tópico: ecg.arrhythmia.events" vertex="1">
+          <mxGeometry height="50" width="283" x="500" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="topic3" parent="kafka_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Tópico: ecg.alerts" vertex="1">
+          <mxGeometry height="50" width="203" x="820" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="consumers" parent="kafka_layer" style="text;html=1;fontSize=11;fontStyle=2;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;align=left;spacingLeft=10;" value="Consumer Groups:  [flink-processor]   [timescale-writer]   [ml-arrhythmia-v2]   [databricks-dlt-ingestor]" vertex="1">
+          <mxGeometry height="40" width="880" x="144" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ing_kafka" edge="1" parent="zona2" source="ingest_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;fontSize=10;fontStyle=2;" target="kafka_layer" value="Dapr pub/sub">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flink" parent="zona2" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="APACHE FLINK&#xa;&#xa;Streaming&#xa;p99 &lt; 500ms&#xa;&#xa;→ TimescaleDB&#xa;→ Centrifugo&#xa;→ ecg.alerts" vertex="1">
+          <mxGeometry height="180" width="180" x="150" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="ml" parent="zona2" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="ML PIPELINE&#xa;(AKS GPU T4)&#xa;&#xa;ONNX Runtime&#xa;Inferência 2ms&#xa;&#xa;3 classes:&#xa;NSR / AFIB / VT&#xa;&#xa;→ ecg.arrhythmia&#xa;   .events" vertex="1">
+          <mxGeometry height="180" width="180" x="390" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="timescale" parent="zona2" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="TIMESCALEDB&#xa;(séries temporais)&#xa;&#xa;Compressão 90%&#xa;Retenção 2 anos&#xa;&#xa;Leitura:&#xa;Dashboard API&#xa;DPO Portal" vertex="1">
+          <mxGeometry height="180" width="180" x="630" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="databricks" parent="zona2" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="DATABRICKS&#xa;(Lakehouse)&#xa;&#xa;Delta Live Tables&#xa;Bronze→Silver→Gold&#xa;&#xa;MLflow Registry&#xa;Feature Store&#xa;Databricks SQL&#xa;Drift Monitor" vertex="1">
+          <mxGeometry height="180" width="180" x="870" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="e_k_flink" edge="1" parent="zona2" source="kafka_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;" target="flink" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_k_ml" edge="1" parent="zona2" source="kafka_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;" target="ml" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_k_ts" edge="1" parent="zona2" source="kafka_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;" target="timescale" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_k_db" edge="1" parent="zona2" source="kafka_layer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;" target="databricks" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mlflow" parent="zona2" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="MLflow Model Registry&#xa;ONNX → Blob&#xa;sign-off cardiologista" vertex="1">
+          <mxGeometry height="80" width="180" x="390" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="adls" parent="zona2" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;whiteSpace=wrap;" value="ADLS Gen2&#xa;(Delta Lake)&#xa;Unity Catalog&#xa;batch diário" vertex="1">
+          <mxGeometry height="80" width="180" x="870" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ml_mlflow" edge="1" parent="zona2" source="ml" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;fontStyle=2;" target="mlflow" value="sign-off">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_db_adls" edge="1" parent="zona2" source="databricks" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;fontStyle=2;" target="adls" value="batch diário">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="storage_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1;rounded=1;" value="STORAGE — dados em repouso" vertex="1">
+          <mxGeometry height="150" width="1170" x="30" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" parent="storage_layer" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="TimescaleDB&#xa;(ECG séries)" vertex="1">
+          <mxGeometry height="60" width="150" x="20" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="storage_layer" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="PostgreSQL&#xa;criptografado (PII)" vertex="1">
+          <mxGeometry height="60" width="150" x="205" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="storage_layer" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Redis&#xa;(sessões / cache)" vertex="1">
+          <mxGeometry height="60" width="150" x="390" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" parent="storage_layer" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="PostgreSQL append-only&#xa;(audit LGPD)" vertex="1">
+          <mxGeometry height="60" width="150" x="590" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" parent="storage_layer" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Azure Blob&#xa;(modelos ONNX)" vertex="1">
+          <mxGeometry height="60" width="150" x="780" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" parent="storage_layer" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;" value="Azure Key Vault HSM&#xa;chaves por paciente&#xa;crypto-shredding" vertex="1">
+          <mxGeometry height="60" width="170" x="970" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="obs_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;rounded=1;" value="OBSERVABILIDADE" vertex="1">
+          <mxGeometry height="160" width="1170" x="30" y="1330" as="geometry" />
+        </mxCell>
+        <mxCell id="o1" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Prometheus (métricas)&#xa;→ Grafana" vertex="1">
+          <mxGeometry height="60" width="180" x="20" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="o2" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Loki (logs)&#xa;→ Grafana" vertex="1">
+          <mxGeometry height="60" width="160" x="220" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="o3" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Jaeger&#xa;(traces)" vertex="1">
+          <mxGeometry height="60" width="140" x="400" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="o4" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="OpenTelemetry Collector&#xa;(sidecar em todos os pods)" vertex="1">
+          <mxGeometry height="60" width="200" x="560" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="o5" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value=".NET Aspire Dashboard&#xa;(dev local)" vertex="1">
+          <mxGeometry height="60" width="180" x="780" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="o6" parent="obs_layer" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" value="Evidently AI&#xa;Concept Drift&#xa;→ Grafana alert" vertex="1">
+          <mxGeometry height="60" width="160" x="980" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="cicd_layer" parent="zona2" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;rounded=1;" value="CI/CD — GitOps" vertex="1">
+          <mxGeometry height="150" width="1170" x="30" y="1530" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="cicd_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="GitHub PR&#xa;+ GitHub Actions&#xa;tests · Snyk · build · ACR" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="cicd_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="Staging&#xa;[aprovação manual]" vertex="1">
+          <mxGeometry height="70" width="160" x="270" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="cicd_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="Flagger Canary 10%&#xa;análise 10min&#xa;Promoção ou Rollback" vertex="1">
+          <mxGeometry height="70" width="190" x="480" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" parent="cicd_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="Flux CD (GitOps)&#xa;reconcilia Git→AKS&#xa;a cada 60s" vertex="1">
+          <mxGeometry height="70" width="180" x="730" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="cicd_layer" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="Terraform&#xa;Infraestrutura Azure&#xa;declarativa (state: Azure Blob)" vertex="1">
+          <mxGeometry height="70" width="190" x="950" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="e_c1_c2" edge="1" parent="cicd_layer" source="c1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="c2" value="→">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_c2_c3" edge="1" parent="cicd_layer" source="c2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="c3" value="→">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_c3_c4" edge="1" parent="cicd_layer" source="c3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="c4" value="→">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_c4_c5" edge="1" parent="cicd_layer" source="c4" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="c5" value="→">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_internet_fw" edge="1" parent="1" source="mqtt_label" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#FF6600;strokeWidth=2;" target="firewall" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1315" y="280" />
+              <mxPoint x="440" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
