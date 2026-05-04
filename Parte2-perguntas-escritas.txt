@@ -1,0 +1,81 @@
+Parte 2 — Perguntas escritas
+
+1 - Docker Considere um microsserviço em Go que precisa ler de /dev/ttyUSB0 do host.
+
+Como você estruturaria o Dockerfile? (stages, user, baseimage)
+
+3 decisões que importam:
+distroless → superfície de ataque mínima, sem shell
+CGO_ENABLED=0 → binário estático, sem dependência de libc
+USER 65532:20 → UID sem privilégio + GID dialout para acessar a porta serial
+No docker run: obrigatório --device=/dev/ttyUSB0 — sem isso o container não enxerga o dispositivo, independente do Dockerfile
+
+Qual a diferença prática entre COPY no Docker file e cp no host?
+
+cp copia um arquivo no sistema de arquivos do host — é temporário, reversível e não afeta nada além do disco local.
+COPY no Dockerfile faz o mesmo, mas grava um layer permanente na imagem — esse layer existe para sempre no histórico, mesmo que você delete o arquivo depois.
+Isso significa que um COPY segredo.env seguido de RUN rm segredo.env não apaga o segredo — ele continua visível via docker history.
+Cada COPY também aumenta o tamanho da imagem, pois cria um novo layer imutável empilhado sobre os anteriores.
+Para segredos, use RUN --mount=type=secret — o arquivo nunca entra na imagem.
+Regra de ouro: cp age no host, COPY age na história da imagem — e história no Docker não se apaga.
+
+Cite um risco que só aparece em produção.
+
+O mais clássico: o dispositivo /dev/ttyUSB0 não existe ou muda de nome.
+Em desenvolvimento o cabo USB está fixo na porta, sempre ttyUSB0. Em produção, dependendo da ordem de boot ou de quantos dispositivos estão plugados, o kernel pode registrar como ttyUSB1 ou ttyACM0 — e o container sobe, não falha no start, mas lê silêncio.
+Não há crash, não há log de erro óbvio — o serviço parece saudável para o orquestrador.
+Esse tipo de falha mata alertas baseados em "container rodando" — o healthcheck precisa validar leitura real do dispositivo, não só se o processo está vivo.
+Regra: em hardware, "subiu" não significa "está funcionando".
+
+2 - Mensageria Um arquiteto propõe Kafka outro propõe MQTT Um terceiro propõe ambos.
+
+Escolha uma das três rotas para a telemetria de aparelhos médicos HealthGo e justifique a escolha com pelo menos 2 trade-offs explícitos.
+
+Ambos (MQTT + Kafka)
+
+MQTT vive na borda: protocolo leve, feito para dispositivos com CPU e bateria limitadas, conexão instável e rede restrita — exatamente o perfil de um aparelho médico.
+Kafka vive no núcleo: feito para ingestão massiva, retenção durável e múltiplos consumidores independentes — dashboards, alertas, ML e auditoria lendo o mesmo dado sem se atropelar.
+A ponte entre os dois é um MQTT Broker → Kafka Connect, que consome o tópico MQTT e publica no Kafka com garantia de entrega.
+Trade-off 1 — Complexidade operacional: você passa a operar dois sistemas de mensageria. Se o time é pequeno, isso pode matar a operação antes de salvar um paciente.
+Trade-off 2 — Latência vs Durabilidade: MQTT puro chegaria mais rápido ao alerta, mas sem retenção. Kafka garante que nenhum dado de telemetria se perde, porém adiciona milissegundos de pipeline — aceitável para monitoramento contínuo, inaceitável para alarme de parada cardíaca em tempo real.
+Regra: o alarme crítico dispara no broker MQTT, antes do Kafka. O Kafka guarda o histórico. Cada um faz o que sabe fazer.
+
+3 - Segurança Uma clínica usa SSO corporativo próprio Médicos também usam um app mobile com login direto.
+
+Quando OAuth2 basta vs.quando você precisa de OIDC?
+
+OAuth2 basta quando o sistema só precisa de autorização — "esse token permite acessar prontuários?" — sem se importar com a identidade de quem está atrás do token.
+OIDC é obrigatório quando o app mobile precisa saber quem é o médico — nome, CRM, especialidade — pois o OIDC adiciona o id_token com essas claims, algo que o OAuth2 puro não entrega.
+No SSO corporativo interno, OAuth2 basta: o servidor já conhece o contexto e a sessão é gerenciada centralmente.
+No app mobile, sem OIDC você seria forçado a fazer uma chamada extra à API de perfil a cada sessão — gambiarra que o OIDC resolve nativamente com o userinfo endpoint.
+OIDC expõe mais dados no token — se vazar, expõe a identidade do médico.
+
+Qual o risco de usar OAuth2 com o mecanismo de autenticação?
+
+OAuth2 não foi projetado para autenticação — ele resolve autorização. Usá-lo como mecanismo de login é um desvio de propósito que gera vulnerabilidades reais.
+O risco central: o access_token não carrega garantia de identidade — ele diz que o portador tem permissão, mas não quem é o portador. Qualquer sistema que confie no token para identificar o usuário está construindo sobre areia.
+Ataque clássico: um token válido obtido de outro serviço pode ser reaproveitado — o chamado token substitution attack — porque o OAuth2 não vincula o token a um contexto de autenticação específico.
+Sem o id_token do OIDC, não há nonce, não há iat, não há proteção contra replay attack — o mesmo token pode ser reutilizado em outra sessão sem que o sistema perceba.
+Em ambientes médicos, isso significa que um token interceptado pode dar acesso a prontuários sem nenhum alerta de intrusão.
+
+4 - Banco de dados O ECG gera ∼500amostras/s por aparelho. Precisamos histórico de 1 ano. O dashboard mostra somente os últimos 30 segundos.
+
+Proponha uma estratégia de armazenamento(tipo de banco, particionamento/TTL) e o trade-off principal que você aceita.
+
+No TimescaleDB, os dados ficam particionados por device_id + time em chunks de 1 hora, com TTL de 30 dias para a camada quente — o dashboard de 30 segundos responde em microssegundos via índice de série temporal.
+Para o histórico de 1 ano, um job noturno compacta e exporta os chunks expirados para S3 em formato Parquet, particionado por ano/mês/device_id — consultas analíticas e auditoria médica rodam via Athena ou DuckDB.
+Estimativa de volume: 500 amostras/s × 86.400s × 365 dias = ~15 bilhões de registros/ano por aparelho — armazenar tudo quente é financeiramente inviável.
+Trade-off principal aceito: consultas que cruzam dados quentes e frios exigem duas queries e join manual — não há transparência automática entre camadas, o que aumenta a complexidade da camada de serviço.
+
+5 - Visão sistêmica Considerando a arquitetura que você desenhou na Parte1, decida entre dois caminhos:
+
+Fila MQTT dedicada ao ECG,isolando o produto ou Reaproveitar o barramento Kafka já usado por outros 4 produtos HealthGo.
+Escolha um caminho e, mais importante, descreva o que você faria para minimizar impacto na organização(times, operação, documentação, mentoria)
+
+Kafka compartilhado, com isolação lógica via tópico dedicado ecg.raw.v1 e consumer group exclusivo para o produto ECG.
+Por quê? Cinco produtos já operam no mesmo barramento — replicar infraestrutura de mensageria para um produto seria dívida operacional imediata: mais clusters, mais alertas, mais oncall, mais custo sem ganho proporcional de resiliência.
+O que fazer para minimizar impacto:
+Times — criar um chapter de mensageria entre os 5 times. Cada time mantém autonomia no seu tópico, mas decisões de schema e versionamento passam por revisão cruzada. O time ECG não fica refém do time de plataforma.
+Operação — implementar quotas por tópico no Kafka (producer byte-rate, consumer fetch-rate) para garantir que o ECG — com 500 amostras/s — não consuma banda dos outros produtos. SLA de latência monitorado por tópico, não só por cluster.
+Documentação — AsyncAPI spec para cada tópico, versionada no repositório central. Mudança de schema exige PR aprovado por pelo menos dois times consumidores. Sem surpresas silenciosas.
+Mentoria — rodar duas sessões de onboarding com o time ECG: uma técnica (particionamento, offsets, retenção) e uma cultural (como propor mudanças no barramento sem quebrar os outros). Kafka compartilhado só funciona se os times souberem negociar.
